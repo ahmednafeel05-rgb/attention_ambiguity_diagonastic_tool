@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Who Is “It”?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column; the explorer is the hero, findings and method follow as prose with one chart */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --ink: #141922;
+  --ink-2: #4a5363;
+  --muted: #6f7888;
+  --line: #dde2ea;
+  --mid: #e9ecf1;
+  --noun-a: #2563c9;
+  --noun-b: #d9731a;
+  --swing-right: #6a4fd6;
+  --swing-wrong: #a37a12;
+  --bar-solved: #2c3442;
+  --bar-failed: #b7bfcc;
+  --f-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --surface: #1a2029; --ink: #e8ecf2; --ink-2: #aab3c2; --muted: #8590a1;
+    --line: #2a323e; --mid: #252c37; --noun-a: #3f80e6; --noun-b: #d07320;
+    --swing-right: #8a72ec; --swing-wrong: #b08722; --bar-solved: #d5dbe5; --bar-failed: #4a5363;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --surface: #1a2029; --ink: #e8ecf2; --ink-2: #aab3c2; --muted: #8590a1;
+  --line: #2a323e; --mid: #252c37; --noun-a: #3f80e6; --noun-b: #d07320;
+  --swing-right: #8a72ec; --swing-wrong: #b08722; --bar-solved: #d5dbe5; --bar-failed: #4a5363;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.6; }
+.wrap { max-width: 860px; margin: 0 auto; padding-inline: 16px; }
+main { padding-block: 32px 64px; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(40px, 9vw, 72px); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(24px, 4.5vw, 32px); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; max-width: 65ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 20px; color: var(--ink-2); }
+header { display: flex; flex-direction: column; gap: 14px; }
+.mono { font-family: var(--f-mono); }
+.num { font-variant-numeric: tabular-nums; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: baseline; margin-right: 6px; }
+.sw.a { background: var(--noun-a); } .sw.b { background: var(--noun-b); }
+.sw.r { background: var(--swing-right); } .sw.w { background: var(--swing-wrong); }
+
+/* ---------- explorer ---------- */
+.explorer { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 22px; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: end; }
+.control { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.control label, .control .lbl { font-family: var(--f-display); font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+select { font: 500 15px var(--f-display); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; max-width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.seg button { font: 600 14px var(--f-display); color: var(--ink-2); background: transparent; border: 0; padding: 8px 14px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+button:focus-visible, select:focus-visible, .cell:focus-visible { outline: 2px solid var(--swing-right); outline-offset: 2px; }
+
+.sentence { display: flex; flex-wrap: wrap; gap: 6px 4px; align-items: flex-start; }
+.tok { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
+.tok .w { font-family: var(--f-mono); font-size: 16px; padding: 5px 7px; border-radius: 6px; transition: background-color .5s, color .5s; border-bottom: 3px solid transparent; }
+.tok.a .w { border-bottom-color: var(--noun-a); }
+.tok.b .w { border-bottom-color: var(--noun-b); }
+.tok.reader .w { outline: 2px dashed var(--ink-2); outline-offset: 2px; }
+.tok .p { font-family: var(--f-mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.caption { font-size: 15px; color: var(--ink-2); }
+
+.pull { display: grid; grid-template-columns: auto 1fr auto; gap: 10px 12px; align-items: center; }
+.pull .name { font-family: var(--f-display); font-weight: 700; font-size: 16px; }
+.pull .track { height: 14px; background: var(--mid); border-radius: 4px; overflow: hidden; }
+.pull .fill { height: 100%; width: 0; border-radius: 0 4px 4px 0; transition: width .6s cubic-bezier(.3,.7,.2,1); }
+.pull .fill.a { background: var(--noun-a); } .pull .fill.b { background: var(--noun-b); }
+.pull .pct { font-family: var(--f-mono); font-size: 14px; min-width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
+
+.verdicts { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font: 600 14px var(--f-display); padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg); }
+.chip .k { color: var(--muted); font-weight: 500; }
+.claim { font-size: 18px; border-left: 3px solid var(--ink); padding-left: 14px; }
+
+.mapwrap { display: flex; flex-direction: column; gap: 10px; }
+.maphead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: end; }
+.grid { display: grid; gap: 1px; width: 100%; }
+.cell { aspect-ratio: 1; background: var(--mid); border-radius: 1px; cursor: pointer; position: relative; }
+.cell.sel { outline: 2px solid var(--ink); outline-offset: 1px; z-index: 1; }
+.rowlab { font-family: var(--f-mono); font-size: 10px; color: var(--muted); text-align: right; padding-right: 6px; line-height: 1; align-self: center; }
+.collab { font-family: var(--f-mono); font-size: 10px; color: var(--muted); text-align: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-family: var(--f-display); font-size: 13px; color: var(--ink-2); }
+.ramp { width: 140px; height: 10px; border-radius: 3px; }
+.hint { font-size: 14px; color: var(--muted); }
+
+.tip { position: fixed; pointer-events: none; z-index: 10; background: var(--ink); color: var(--bg); font: 500 13px/1.4 var(--f-display); padding: 8px 10px; border-radius: 8px; max-width: 240px; }
+
+/* ---------- findings ---------- */
+section { display: flex; flex-direction: column; gap: 18px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.stat { border-top: 2px solid var(--ink); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.stat b { font-family: var(--f-display); font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+.stat span { font-size: 15px; color: var(--ink-2); }
+.cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.case { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.case .pair { font-family: var(--f-mono); font-size: 13px; color: var(--ink-2); }
+.case p { font-size: 15.5px; }
+.case .tag { align-self: flex-start; font: 700 11px var(--f-display); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.case button { margin-top: auto; align-self: flex-start; font: 600 14px var(--f-display); color: var(--ink); background: transparent; border: 1px solid var(--ink); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.case button:hover { background: var(--ink); color: var(--bg); }
+
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { font-family: var(--f-mono); font-size: 12px; fill: var(--ink-2); }
+.chart .lbl-strong { fill: var(--ink); }
+
+.method ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; max-width: 65ch; }
+footer { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+.loading { color: var(--muted); font-family: var(--f-display); }
+
+@media (max-width: 520px) {
+  .explorer { padding: 14px; }
+  .tok .w { font-size: 14px; padding: 4px 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pull .fill, .tok .w { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<main>
+  <header>
+    <span class="eyebrow">A.03.2 · Pronoun resolution in GPT-2 small and GPT-2 XL</span>
+    <h1>Who is “it”?</h1>
+    <p class="lede">“The knife cut the bread easily because it was so <em>sharp</em>.” Change one word to <em>soft</em> and “it” means the bread. GPT-2 XL has one attention head, layer 20 head 4, that moves with that word: 74% of its attention lands on <em>knife</em>, then 97% on <em>bread</em>. GPT-2 small has no head that does this reliably.</p>
+  </header>
+
+  <div class="explorer" id="explorer" aria-live="polite">
+    <div class="controls">
+      <div class="control">
+        <label for="pair">Sentence pair</label>
+        <select id="pair"></select>
+      </div>
+      <div class="control">
+        <span class="lbl" id="model-lbl">Model</span>
+        <div class="seg" role="group" aria-labelledby="model-lbl" id="model"></div>
+      </div>
+      <div class="control">
+        <span class="lbl" id="clue-lbl">Clue word</span>
+        <div class="seg" role="group" aria-labelledby="clue-lbl" id="clue"></div>
+      </div>
+    </div>
+
+    <div class="sentence" id="sentence"><span class="loading">Loading attention data…</span></div>
+    <p class="caption" id="caption"></p>
+
+    <div class="pull" id="pull"></div>
+    <div class="verdicts" id="verdicts"></div>
+    <p class="claim" id="claim"></p>
+
+    <div class="mapwrap">
+      <div class="maphead">
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+          <h3 id="map-title">Every head</h3>
+          <span class="hint">Each square is one head. Tap or click a square to inspect it above.</span>
+        </div>
+        <div class="seg" role="group" aria-label="Map view" id="mapmode">
+          <button type="button" data-mode="pref" aria-pressed="true">This sentence</button>
+          <button type="button" data-mode="flip" aria-pressed="false">Swing between versions</button>
+        </div>
+      </div>
+      <div class="grid" id="grid" role="grid" aria-label="Attention heads by layer"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+
+  <section id="findings">
+    <span class="eyebrow">What the attention showed</span>
+    <h2>One head swings with the clue, and only in the bigger model</h2>
+    <div class="stats" id="stats"></div>
+    <p>Each pair is two sentences that differ by one word, and the word decides what the pronoun means. We asked each model which reading it prefers, then read the attention from that final clue word back to the two nouns. The first five pairs were used to find the heads. The other nine were held back and tested afterwards.</p>
+
+    <div class="cases">
+      <article class="case">
+        <span class="tag">Both models fail</span>
+        <h3>Trophy and suitcase</h3>
+        <span class="pair">…because it was too big / small</span>
+        <p>Both models answer “suitcase” for both versions, the noun nearest to “it”. Head L20H4 agrees: 50% on suitcase after “big”, 61% after “small”. At the word “it” itself, attention is identical in both sentences, because GPT-2 reads left to right and has not seen the clue yet.</p>
+        <button type="button" data-open="trophy" data-model="gpt2-xl">Open in explorer</button>
+      </article>
+      <article class="case">
+        <span class="tag">Resolved · held-out</span>
+        <h3>Knife and bread</h3>
+        <span class="pair">…because it was so sharp / soft</span>
+        <p>GPT-2 XL answers both versions correctly. L20H4 puts 74% of its attention on “knife” after “sharp” and 97% on “bread” after “soft”, a swing of +1.65 on a sentence it was not selected on. GPT-2 small also gets this pair right.</p>
+        <button type="button" data-open="knife" data-model="gpt2-xl">Open in explorer</button>
+      </article>
+      <article class="case">
+        <span class="tag">Moves, never switches · held-out</span>
+        <h3>Lion and deer</h3>
+        <span class="pair">…because it was so fast / slow</span>
+        <p>GPT-2 XL answers “deer” both times, so it is wrong for “fast”. L20H4 moves the right way, from 88% on deer down to 52%, with lion rising from 4% to 24%. It never crosses over, and neither does the answer.</p>
+        <button type="button" data-open="lion" data-model="gpt2-xl">Open in explorer</button>
+      </article>
+    </div>
+
+    <div class="chart">
+      <h3>L20H4’s swing on every pair, GPT-2 XL</h3>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--bar-solved)"></span>XL answers both versions correctly</span>
+        <span><span class="sw" style="background:var(--bar-failed)"></span>XL gets at least one wrong</span>
+        <span class="mono" style="font-size:12px">◆ held-out pair</span>
+      </div>
+      <div id="swingchart"></div>
+      <p class="hint">Swing = (pull toward the first noun with the first clue) − (the same with the second clue). It runs from −2 to +2. Positive means the head moves toward the correct noun each time.</p>
+    </div>
+  </section>
+
+  <section class="method" id="method">
+    <span class="eyebrow">How this was measured</span>
+    <h2>Method and limits</h2>
+    <ul>
+      <li><b>Models.</b> GPT-2 small (12 layers × 12 heads) and GPT-2 XL (48 layers × 25 heads), loaded with Hugging Face Transformers. Attention weights are the model’s real values, exported once and shown here as-is.</li>
+      <li><b>What each model answers.</b> “It” is replaced by each noun in turn (“the knife was so sharp”, “the bread was so sharp”). The sentence the model finds more likely is its answer.</li>
+      <li><b>Where attention is read.</b> From the final clue word, the first point where the model has seen it. Reading from “it” cannot work: the two versions of the sentence are identical up to that point.</li>
+      <li><b>Finding the head.</b> Heads were ranked on two pairs (man/son, fish/worm) and then checked on nine new pairs. L20H4 held up. Another candidate, L14H24, did not, which is why the held-out check matters.</li>
+      <li><b>Limits.</b> Fourteen pairs is a small set, and the sentences are fixed rather than typed in, because running GPT-2 XL needs a GPU. Attention shows where a head looks, not why the model decides. Showing that L20H4 causes the answer would take an ablation or patching experiment.</li>
+    </ul>
+  </section>
+
+  <footer>Data: real attention weights from GPT-2 small and GPT-2 XL on 14 Winograd-style sentence pairs. Built for artifact A.03.2.</footer>
+</main>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(() => {
+  const DEFAULT_HEAD = { "gpt2": [9, 0], "gpt2-xl": [20, 4] };
+  const MODEL_NAME = { "gpt2": "GPT-2 small", "gpt2-xl": "GPT-2 XL" };
+  const state = { pair: 0, model: "gpt2-xl", clueIdx: 0, mode: "pref", head: { ...DEFAULT_HEAD } };
+  let D = null, pre = null;
+  const $ = id => document.getElementById(id);
+
+  // ---------- color helpers (read live tokens so both themes work) ----------
+  const css = () => getComputedStyle(document.documentElement);
+  const hex2rgb = h => { h = h.trim().replace("#", ""); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+  const mix = (c1, c2, t) => { const a = hex2rgb(c1), b = hex2rgb(c2); return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",")})`; };
+  function diverge(v, max, negVar, posVar) {
+    const s = css(); const mid = s.getPropertyValue("--mid");
+    const t = Math.min(1, Math.abs(v) / max);
+    const eased = Math.sqrt(t);
+    return mix(mid, s.getPropertyValue(v >= 0 ? posVar : negVar), eased);
+  }
+
+  // ---------- precompute preferences and swings ----------
+  function prep() {
+    pre = D.pairs.map(p => {
+      const out = {};
+      for (const m of Object.keys(D.models)) {
+        const clues = Object.keys(p.clues);
+        const prefs = clues.map(c => {
+          const r = p.runs[m][c]; const iA = r.tokens.indexOf(p.A), iB = r.tokens.indexOf(p.B);
+          return r.last_row.map(layer => layer.map(row => row[iA] - row[iB]));
+        });
+        const flip = prefs[0].map((layer, l) => layer.map((v, h) => v - prefs[1][l][h]));
+        const solved = clues.every(c => p.runs[m][c].correct);
+        out[m] = { prefs, flip, solved };
+      }
+      return out;
+    });
+  }
+
+  // ---------- controls ----------
+  function buildControls() {
+    const sel = $("pair");
+    const groups = [["Used to find the head", false], ["Held-out test", true]];
+    for (const [label, held] of groups) {
+      const og = document.createElement("optgroup"); og.label = label;
+      D.pairs.forEach((p, i) => {
+        if (p.held_out !== held) return;
+        const o = document.createElement("option"); o.value = i;
+        o.textContent = `${p.A} / ${p.B}`; og.appendChild(o);
+      });
+      sel.appendChild(og);
+    }
+    sel.value = state.pair;
+    sel.addEventListener("change", () => { state.pair = +sel.value; state.clueIdx = 0; render(); });
+
+    const mb = $("model");
+    for (const m of Object.keys(D.models)) {
+      const b = document.createElement("button"); b.type = "button"; b.dataset.m = m; b.textContent = MODEL_NAME[m] || m;
+      b.addEventListener("click", () => { state.model = m; buildGrid(); render(); });
+      mb.appendChild(b);
+    }
+    $("mapmode").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.mode = b.dataset.mode; render(); }));
+    document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => {
+      const i = D.pairs.findIndex(p => p.A === b.dataset.open);
+      if (i < 0) return;
+      state.pair = i; state.model = b.dataset.model; state.clueIdx = 0; state.head[state.model] = [...DEFAULT_HEAD[state.model]];
+      $("pair").value = i; buildGrid(); render();
+      $("explorer").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    }));
+  }
+
+  // ---------- head map ----------
+  let cells = [];
+  function buildGrid() {
+    const g = $("grid"); g.innerHTML = ""; cells = [];
+    const { layers, heads } = D.models[state.model];
+    g.style.gridTemplateColumns = `28px repeat(${heads}, minmax(0, 1fr))`;
+    g.style.maxWidth = `${28 + heads * (heads > 12 ? 17 : 32)}px`;
+    const step = layers > 12 ? 4 : 1;
+    for (let l = 0; l < layers; l++) {
+      const lab = document.createElement("div"); lab.className = "rowlab";
+      lab.textContent = l % step === 0 ? `L${l}` : ""; g.appendChild(lab);
+      cells[l] = [];
+      for (let h = 0; h < heads; h++) {
+        const c = document.createElement("div"); c.className = "cell"; c.tabIndex = -1;
+        c.setAttribute("role", "gridcell"); c.dataset.l = l; c.dataset.h = h;
+        c.addEventListener("click", () => { state.head[state.model] = [l, h]; render(); });
+        c.addEventListener("mousemove", e => showTip(e, l, h));
+        c.addEventListener("mouseleave", hideTip);
+        g.appendChild(c); cells[l][h] = c;
+      }
+    }
+    const blank = document.createElement("div"); g.appendChild(blank);
+    for (let h = 0; h < heads; h++) {
+      const lab = document.createElement("div"); lab.className = "collab";
+      lab.textContent = (heads > 12 ? h % 4 === 0 : true) ? `H${h}` : ""; g.appendChild(lab);
+    }
+    const [sl, sh] = state.head[state.model];
+    cells[sl][sh].tabIndex = 0;
+  }
+  $("grid").addEventListener("keydown", e => {
+    const { layers, heads } = D.models[state.model];
+    let [l, h] = state.head[state.model];
+    const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (!moves[e.key]) return;
+    e.preventDefault();
+    l = Math.max(0, Math.min(layers - 1, l + moves[e.key][0]));
+    h = Math.max(0, Math.min(heads - 1, h + moves[e.key][1]));
+    state.head[state.model] = [l, h]; render(); cells[l][h].focus();
+  });
+
+  function showTip(e, l, h) {
+    const p = D.pairs[state.pair], m = state.model, clue = Object.keys(p.clues)[state.clueIdx];
+    const r = p.runs[m][clue]; const row = r.last_row[l][h];
+    const a = row[r.tokens.indexOf(p.A)], b = row[r.tokens.indexOf(p.B)];
+    const sw = pre[state.pair][m].flip[l][h];
+    const t = $("tip");
+    t.innerHTML = `<b>L${l}H${h}</b><br>${p.A} ${pct(a)} · ${p.B} ${pct(b)}<br>swing ${fmt(sw)}`;
+    t.hidden = false;
+    const x = Math.min(e.clientX + 14, window.innerWidth - t.offsetWidth - 8);
+    const y = Math.min(e.clientY + 14, window.innerHeight - t.offsetHeight - 8);
+    t.style.left = x + "px"; t.style.top = y + "px";
+  }
+  function hideTip() { $("tip").hidden = true; }
+  const pct = v => `${Math.round(v * 100)}%`;
+  const fmt = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+
+  // ---------- main render ----------
+  function render() {
+    const p = D.pairs[state.pair], m = state.model;
+    const clues = Object.keys(p.clues), clue = clues[state.clueIdx];
+    const r = p.runs[m][clue];
+    const [hl, hh] = state.head[m];
+    const row = r.last_row[hl][hh];
+    const iA = r.tokens.indexOf(p.A), iB = r.tokens.indexOf(p.B), last = r.tokens.length - 1;
+    const P = pre[state.pair][m];
+
+    // toggles
+    $("model").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === m));
+    const cb = $("clue"); cb.innerHTML = "";
+    clues.forEach((c, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = c;
+      b.setAttribute("aria-pressed", i === state.clueIdx);
+      b.addEventListener("click", () => { state.clueIdx = i; render(); });
+      cb.appendChild(b);
+    });
+    $("mapmode").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === state.mode));
+
+    // sentence with attention shading
+    const s = $("sentence"); s.innerHTML = "";
+    r.tokens.forEach((t, i) => {
+      const box = document.createElement("span");
+      box.className = "tok" + (i === iA ? " a" : "") + (i === iB ? " b" : "") + (i === last ? " reader" : "");
+      const w = document.createElement("span"); w.className = "w"; w.textContent = t;
+      const v = i === last ? null : row[i];
+      if (v !== null) {
+        const pctv = Math.round(Math.min(1, v) * 85);
+        w.style.backgroundColor = `color-mix(in srgb, var(--ink) ${pctv}%, transparent)`;
+        w.style.color = pctv > 45 ? "var(--bg)" : "var(--ink)";
+      }
+      const pv = document.createElement("span"); pv.className = "p";
+      pv.textContent = i === last ? "reading" : (v >= 0.005 ? pct(v) : "·");
+      box.append(w, pv); s.appendChild(box);
+    });
+    const sink = row[0];
+    $("caption").textContent =
+      `Shading shows where head L${hl}H${hh} of ${MODEL_NAME[m]} looks from the final word “${r.tokens[last]}”, the first point where the clue exists.` +
+      (sink > 0.3 && iA !== 0 ? ` ${pct(sink)} goes to the first word, a common resting spot that carries no meaning.` : "");
+
+    // pull bars
+    const pull = $("pull"); pull.innerHTML = "";
+    [[p.A, row[iA], "a"], [p.B, row[iB], "b"]].forEach(([name, v, k]) => {
+      const n = document.createElement("span"); n.className = "name"; n.innerHTML = `<span class="sw ${k}"></span>${name}`;
+      const tr = document.createElement("div"); tr.className = "track";
+      const f = document.createElement("div"); f.className = "fill " + k; tr.appendChild(f);
+      const pc = document.createElement("span"); pc.className = "pct"; pc.textContent = pct(v);
+      pull.append(n, tr, pc);
+      requestAnimationFrame(() => requestAnimationFrame(() => { f.style.width = `${Math.max(0.5, v * 100)}%`; }));
+    });
+
+    // verdicts
+    const right = p.clues[clue];
+    const lean = Math.abs(row[iA] - row[iB]) < 0.05 ? "neither noun" : (row[iA] > row[iB] ? p.A : p.B);
+    $("verdicts").innerHTML =
+      `<span class="chip"><span class="k">${MODEL_NAME[m]} answers</span>${r.choice} ${r.correct ? "✓ correct" : "✗ wrong"}</span>` +
+      `<span class="chip"><span class="k">Correct answer</span>${right}</span>` +
+      `<span class="chip"><span class="k">L${hl}H${hh} leans to</span>${lean}</span>`;
+
+    // claim
+    $("claim").textContent = claim(p, m, P, hl, hh);
+
+    // map
+    const { layers, heads } = D.models[m];
+    $("map-title").textContent = `All ${(layers * heads).toLocaleString()} heads in ${MODEL_NAME[m]}`;
+    const data = state.mode === "pref" ? P.prefs[state.clueIdx] : P.flip;
+    for (let l = 0; l < layers; l++) for (let h = 0; h < heads; h++) {
+      const v = data[l][h];
+      cells[l][h].style.background = state.mode === "pref"
+        ? diverge(v, 0.6, "--noun-b", "--noun-a")
+        : diverge(v, 1.0, "--swing-wrong", "--swing-right");
+      const isSel = l === hl && h === hh;
+      cells[l][h].classList.toggle("sel", isSel);
+      cells[l][h].tabIndex = isSel ? 0 : -1;
+      cells[l][h].setAttribute("aria-label", `Layer ${l} head ${h}: ${state.mode === "pref" ? "preference" : "swing"} ${fmt(v)}`);
+    }
+    const s2 = css();
+    $("legend").innerHTML = state.mode === "pref"
+      ? `<span><span class="sw b"></span>more on ${p.B}</span><span class="ramp" style="background:linear-gradient(90deg, ${s2.getPropertyValue("--noun-b")}, ${s2.getPropertyValue("--mid")}, ${s2.getPropertyValue("--noun-a")})"></span><span><span class="sw a"></span>more on ${p.A}</span><span class="hint">for “${clue}”</span>`
+      : `<span><span class="sw w"></span>swings the wrong way</span><span class="ramp" style="background:linear-gradient(90deg, ${s2.getPropertyValue("--swing-wrong")}, ${s2.getPropertyValue("--mid")}, ${s2.getPropertyValue("--swing-right")})"></span><span><span class="sw r"></span>swings toward the correct noun</span>`;
+  }
+
+  function claim(p, m, P, l, h) {
+    const sw = P.flip[l][h];
+    const [c1, c2] = Object.keys(p.clues);
+    const choices = [c1, c2].map(c => p.runs[m][c].choice);
+    const name = MODEL_NAME[m], head = `L${l}H${h}`;
+    const strong = sw >= 0.3;
+    if (P.solved && strong) return `${name} answers both versions correctly, and ${head} moves with it: changing “${c1}” to “${c2}” swings its attention by ${fmt(sw)} toward the right noun.`;
+    if (P.solved) return `${name} answers both versions correctly, but ${head} barely moves (swing ${fmt(sw)}). The resolving work is happening somewhere else; try the swing view to find it.`;
+    const same = choices[0] === choices[1];
+    if (strong) return `${head} swings the right way (${fmt(sw)}), but ${name} still answers “${choices[0]}”${same ? " for both versions" : ""}. The head moves toward the right noun without the final answer following.`;
+    if (same) return `${name} answers “${choices[0]}” for both versions, so it ignores the clue. ${head} does not swing much either (${fmt(sw)}).`;
+    return `${name} gets this pair wrong, and ${head} does not track the clue (swing ${fmt(sw)}).`;
+  }
+
+  // ---------- findings ----------
+  function findings() {
+    const nPairs = D.pairs.length;
+    const solved = m => pre.filter(x => x[m].solved).length;
+    const rightWay = pre.filter(x => x["gpt2-xl"].flip[20][4] > 0).length;
+    const avgXL = pre.reduce((s, x) => s + x["gpt2-xl"].flip[20][4], 0) / nPairs;
+    // best consistent head in small: highest mean swing
+    let bestS = -9;
+    const { layers, heads } = D.models["gpt2"];
+    for (let l = 0; l < layers; l++) for (let h = 0; h < heads; h++) {
+      const v = pre.reduce((s, x) => s + x["gpt2"].flip[l][h], 0) / nPairs; if (v > bestS) bestS = v;
+    }
+    $("stats").innerHTML = [
+      [`${solved("gpt2-xl")}/${nPairs}`, "pairs GPT-2 XL answers correctly in both versions"],
+      [`${solved("gpt2")}/${nPairs}`, "pairs GPT-2 small answers correctly in both versions"],
+      [`${rightWay}/${nPairs}`, "pairs where L20H4 swings toward the correct noun"],
+      [`${fmt(avgXL)}`, `L20H4’s average swing. The best head in GPT-2 small averages ${fmt(bestS)}.`],
+    ].map(([b, t]) => `<div class="stat"><b>${b}</b><span>${t}</span></div>`).join("");
+
+    // bar chart
+    const rows = D.pairs.map((p, i) => ({ p, v: pre[i]["gpt2-xl"].flip[20][4], solved: pre[i]["gpt2-xl"].solved }))
+      .sort((a, b) => b.v - a.v);
+    const W = Math.max(320, Math.min(760, $("swingchart").clientWidth || 640)), rowH = 26, top = 8, left = 132, right = 48, H = top + rows.length * rowH + 26;
+    const min = Math.min(0, ...rows.map(r => r.v)), max = Math.max(...rows.map(r => r.v));
+    const x = v => left + (v - min) / (max - min) * (W - left - right);
+    const ticks = [0, 0.5, 1, 1.5].filter(t => t <= max + 0.01);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bar chart of L20H4 swing for each sentence pair">`;
+    ticks.forEach(t => {
+      svg += `<line x1="${x(t)}" x2="${x(t)}" y1="${top - 4}" y2="${H - 22}" stroke="var(--line)" stroke-width="1"/>` +
+             `<text x="${x(t)}" y="${H - 6}" text-anchor="middle">${t === 0 ? "0" : "+" + t}</text>`;
+    });
+    rows.forEach((r, i) => {
+      const y = top + i * rowH, x0 = x(0), x1 = x(r.v);
+      const bx = Math.min(x0, x1), bw = Math.max(2, Math.abs(x1 - x0));
+      const fill = r.solved ? "var(--bar-solved)" : "var(--bar-failed)";
+      svg += `<g class="bar" data-i="${D.pairs.indexOf(r.p)}" style="cursor:pointer">` +
+        `<rect x="${left - 128}" y="${y}" width="${W - left + 128}" height="${rowH}" fill="transparent"/>` +
+        `<text x="${left - 10}" y="${y + rowH / 2 + 4}" text-anchor="end" class="lbl-strong">${r.p.held_out ? "◆ " : ""}${r.p.A}/${r.p.B}</text>` +
+        `<rect x="${bx}" y="${y + 5}" width="${bw}" height="${rowH - 10}" rx="3" fill="${fill}"/>` +
+        `<text x="${Math.max(x0, x1) + 6}" y="${y + rowH / 2 + 4}" text-anchor="start">${fmt(r.v)}</text></g>`;
+    });
+    svg += `<line x1="${x(0)}" x2="${x(0)}" y1="${top - 4}" y2="${H - 22}" stroke="var(--ink-2)" stroke-width="1"/></svg>`;
+    $("swingchart").innerHTML = svg;
+    $("swingchart").querySelectorAll(".bar").forEach(g => {
+      const i = +g.dataset.i;
+      g.addEventListener("mousemove", e => {
+        const t = $("tip"), P = pre[i]["gpt2-xl"], p = D.pairs[i];
+        t.innerHTML = `<b>${p.A} / ${p.B}</b>${p.held_out ? " · held-out" : ""}<br>L20H4 swing ${fmt(P.flip[20][4])}<br>XL ${P.solved ? "answers both correctly" : "gets at least one wrong"}<br>Click to open`;
+        t.hidden = false;
+        t.style.left = Math.min(e.clientX + 14, innerWidth - t.offsetWidth - 8) + "px";
+        t.style.top = Math.min(e.clientY + 14, innerHeight - t.offsetHeight - 8) + "px";
+      });
+      g.addEventListener("mouseleave", hideTip);
+      g.addEventListener("click", () => {
+        state.pair = i; state.model = "gpt2-xl"; state.clueIdx = 0; state.head["gpt2-xl"] = [20, 4];
+        $("pair").value = i; buildGrid(); render(); hideTip();
+        $("explorer").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }
+
+  let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (D) findings(); }, 150); });
+  // re-color on theme change
+  const rerender = () => { if (D) render(); };
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rerender);
+  new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  fetch("attention_data.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
+    D = d; prep();
+    state.pair = Math.max(0, D.pairs.findIndex(p => p.A === "knife"));
+    buildControls(); buildGrid(); render(); findings();
+  }).catch(err => {
+    $("sentence").innerHTML = `<span class="loading">The attention data could not be loaded (${err.message}). Make sure attention_data.json sits next to this page.</span>`;
+  });
+})();
+</script>
+</body>
+</html>
